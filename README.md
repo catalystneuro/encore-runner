@@ -20,8 +20,8 @@ At the end of each run, the `deliver` job sends it to the registry. In encoresci
 
 Fork this repository into your organization's GitHub account and enable Actions on the fork. The fork is public, as a fork of a public repository is; it holds no papers and no keys. Then, under the fork's settings:
 
-1. Add a repository secret `ANTHROPIC_API_KEY` with your organization's key. Runs are billed to it.
-2. Add an environment named `papers` with a secret `PAPERS_DEPLOY_KEY`: the private half of a read-only deploy key on your own paper store, a private repository that holds the papers' text and PDFs. encore-protocol's `docs/outside-runs.md` says how to lay it out. The runs read the papers in that environment and never commit them.
+1. Add a repository secret with your organization's account for Claude: `ANTHROPIC_API_KEY`, an API key whose runs are billed to it, or `CLAUDE_CODE_OAUTH_TOKEN`, a Claude subscription's token from `claude setup-token`, whose runs count against the subscription's limits.
+2. Add a repository secret `PAPERS_DEPLOY_KEY`: the private half of a read-only deploy key on your own paper store, a private repository that holds the papers' text and PDFs. encore-protocol's `docs/outside-runs.md` says how to lay it out. It has to be a repository secret: an environment's secrets do not reach the protocol's workflows from another organization. Add an environment named `papers` too; the runs read the papers in it and never commit them.
 3. Add a repository variable `ENCORE_PAPERS_REPO` with the paper store's name, as `owner/name`.
 4. Add a repository variable `ENCORE_ACCOUNTABLE` with the name the attempt records as accountable for it, for example "Acme Lab, University of Somewhere". Without it the record names the fork's owner.
 
