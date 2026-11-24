@@ -36,7 +36,7 @@ jobs:
   # encore-protocol before anyone else runs it.
   claims:
     if: inputs.role != 'author'
-    uses: encorescience/encore-protocol/.github/workflows/papers.yml@main
+    uses: encorescience/encore-protocol/.github/workflows/papers.yml@fork-secrets
     with:
       paper: ${{ inputs.paper }}
       role: ${{ inputs.role }}
@@ -54,7 +54,7 @@ jobs:
 
   author:
     if: inputs.role == 'author'
-    uses: encorescience/encore-protocol/.github/workflows/attempt.yml@main
+    uses: encorescience/encore-protocol/.github/workflows/attempt.yml@fork-secrets
     with:
       paper: ${{ inputs.paper }}
       role: author
