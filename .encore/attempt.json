@@ -59,6 +59,14 @@
    "artifact": "14983587264",
    "state_before": "bc2fbba1586321bb0f89b9e01b05b6918d8ca05c6738b2819e0d8f48392d6d57",
    "state_after": "2742b32d88c0d4d76d079067164f3b29d1c4e8ec9efa05148a241e1a825fd977"
+  },
+  {
+   "role": "recorder",
+   "run_url": "https://github.com/catalystneuro/encore-runner/actions/runs/45514661848",
+   "result": "success",
+   "artifact": "14982954045",
+   "state_before": "2742b32d88c0d4d76d079067164f3b29d1c4e8ec9efa05148a241e1a825fd977",
+   "state_after": "fabc9b92301fbb26fc8411888011d9d05a7951a3338315f353c2e39fd6786956"
   }
  ]
 }
