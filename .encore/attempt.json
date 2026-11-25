@@ -1,0 +1,16 @@
+{
+ "format": 1,
+ "paper": "vijayan-2022",
+ "registry": "encorescience/encore-registry",
+ "base_sha": "3c68aef9542f5f7640f9a613f019d202aaa8fa5f",
+ "runs": [
+  {
+   "role": "claims",
+   "run_url": "https://github.com/catalystneuro/encore-runner/actions/runs/45514661848",
+   "result": "success",
+   "artifact": "14976574571",
+   "state_before": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "state_after": "fab3854289d0be4f03b26318897e6df0bb842770ea50fa4b98a833693b80ac5e"
+  }
+ ]
+}
