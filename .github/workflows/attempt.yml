@@ -50,11 +50,10 @@ jobs:
           PAPER: ${{ inputs.paper }}
         run: tools/tell_registry.sh start "$PAPER"
 
-  # The protocol is pinned to its main branch while this repository is being tried; it moves to a release tag of
-  # encore-protocol before anyone else runs it.
+  # The protocol at a release of encore-protocol. A fork follows a new release by syncing with this repository.
   attempt:
     needs: start
-    uses: encorescience/encore-protocol/.github/workflows/sequence.yml@main
+    uses: encorescience/encore-protocol/.github/workflows/sequence.yml@v0.1.5
     with:
       paper: ${{ inputs.paper }}
       from: ${{ inputs.from }}
