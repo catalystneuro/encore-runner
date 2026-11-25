@@ -35,11 +35,10 @@ permissions:
   attestations: write
 
 jobs:
-  # The protocol is pinned to its main branch while this repository is being tried; it moves to a release tag of
-  # encore-protocol before anyone else runs it.
+  # The protocol at a release of encore-protocol. A fork follows a new release by syncing with this repository.
   reader:
     if: contains(fromJSON('["claims", "claims-check", "answer"]'), inputs.role)
-    uses: encorescience/encore-protocol/.github/workflows/papers.yml@main
+    uses: encorescience/encore-protocol/.github/workflows/papers.yml@v0.1.5
     with:
       paper: ${{ inputs.paper }}
       role: ${{ inputs.role }}
@@ -60,7 +59,7 @@ jobs:
 
   attempt:
     if: ${{ !contains(fromJSON('["claims", "claims-check", "answer"]'), inputs.role) }}
-    uses: encorescience/encore-protocol/.github/workflows/attempt.yml@main
+    uses: encorescience/encore-protocol/.github/workflows/attempt.yml@v0.1.5
     with:
       paper: ${{ inputs.paper }}
       role: ${{ inputs.role }}
