@@ -54,7 +54,7 @@ jobs:
   # encore-protocol before anyone else runs it.
   attempt:
     needs: start
-    uses: encorescience/encore-protocol/.github/workflows/sequence.yml@main
+    uses: encorescience/encore-protocol/.github/workflows/sequence.yml@runner-attempts
     with:
       paper: ${{ inputs.paper }}
       from: ${{ inputs.from }}
