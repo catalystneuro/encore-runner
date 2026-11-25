@@ -1,0 +1,89 @@
+name: Attempt
+run-name: "${{ inputs.paper }} attempt${{ inputs.from && format(' from {0}', inputs.from) || '' }}"
+
+# A whole Encore attempt on one paper (README.md): the reader's claims and their check, the author, the
+# verification rounds and the author's revisions, and the recorder's notes. The protocol's own workflow does the
+# runs (encore-protocol's sequence.yml). They read the registry and write nothing to it: the attempt's state is on
+# this repository's branch attempt/<paper>, and each run is signed. This workflow tells the registry when the attempt
+# starts, and sends it the attempt when the last run has finished (encore-protocol docs/outside-runs.md).
+
+on:
+  workflow_dispatch:
+    inputs:
+      paper:
+        description: "The paper's key in the registry (papers/keys.yaml), such as smith-2020"
+        required: true
+      from:
+        description: "To take an attempt up where it stopped: the role to go on from (empty: from the claims)"
+        default: ""
+      model:
+        description: "The model the runs use"
+        default: claude-opus-5-5
+      account:
+        description: "Which of this repository's Claude accounts the runs use"
+        type: choice
+        options: [verified, unverified, api]
+        default: verified
+
+# contents: the runs push the attempt's state to this repository's own branch. id-token and attestations: they sign
+# their results.
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+env:
+  REGISTRY: encorescience/encore-registry
+
+jobs:
+  start:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Tell the registry that the attempt has started
+        env:
+          GH_TOKEN: ${{ secrets.ENCORE_INTAKE_TOKEN }}
+          PAPER: ${{ inputs.paper }}
+        run: tools/tell_registry.sh start "$PAPER"
+
+  # The protocol is pinned to its main branch while this repository is being tried; it moves to a release tag of
+  # encore-protocol before anyone else runs it.
+  attempt:
+    needs: start
+    uses: encorescience/encore-protocol/.github/workflows/sequence.yml@main
+    with:
+      paper: ${{ inputs.paper }}
+      from: ${{ inputs.from }}
+      model: ${{ inputs.model }}
+      account: ${{ inputs.account }}
+      registry: encorescience/encore-registry
+      papers_repo: ${{ vars.ENCORE_PAPERS_REPO }}
+      accountable: ${{ vars.ENCORE_ACCOUNTABLE }}
+    # By name, not `secrets: inherit`: GitHub passes inherited secrets, and a caller's environment secrets, to a
+    # reusable workflow only within one organization, and a fork is usually in another (encore-protocol
+    # docs/outside-runs.md).
+    secrets:
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+      CLAUDE_CODE_OAUTH_TOKEN_UNVERIFIED: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN_UNVERIFIED }}
+      ANTHROPIC_API_KEY_CREDITS: ${{ secrets.ANTHROPIC_API_KEY_CREDITS }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      PAPERS_DEPLOY_KEY: ${{ secrets.PAPERS_DEPLOY_KEY }}
+
+  send:
+    needs: attempt
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Send the finished attempt to the registry
+        env:
+          GH_TOKEN: ${{ secrets.ENCORE_INTAKE_TOKEN }}
+          PAPER: ${{ inputs.paper }}
+        run: tools/tell_registry.sh attempt "$PAPER"

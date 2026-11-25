@@ -1,0 +1,31 @@
+name: Send
+run-name: "${{ inputs.paper }} send"
+
+# Sends a finished attempt to the registry (README.md), for an attempt whose last runs were made one at a time with
+# the Run workflow. The Attempt workflow does this itself when its last run has finished.
+
+on:
+  workflow_dispatch:
+    inputs:
+      paper:
+        description: "The paper's key in the registry (papers/keys.yaml), such as smith-2020"
+        required: true
+
+permissions:
+  contents: read
+
+env:
+  REGISTRY: encorescience/encore-registry
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Send the finished attempt to the registry
+        env:
+          GH_TOKEN: ${{ secrets.ENCORE_INTAKE_TOKEN }}
+          PAPER: ${{ inputs.paper }}
+        run: tools/tell_registry.sh attempt "$PAPER"
