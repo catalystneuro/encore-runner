@@ -1,10 +1,11 @@
 name: Run
 run-name: "${{ inputs.paper }} ${{ inputs.role }}"
 
-# One run of an Encore attempt, sent to the registry (README.md). The protocol's own workflows do the run: papers.yml
-# for the reader's claims and their check, attempt.yml for the author. With the input `registry` they read the
-# registry, starting from the attempt's branch there, write nothing to it, and end by signing what the run changed
-# (encore-protocol docs/outside-runs.md). The `deliver` job then hands the run to the registry's intake.
+# One run of an Encore attempt (README.md), to make an attempt step by step or to take one up where it stopped; the
+# Attempt workflow makes a whole attempt. The protocol's own workflows do the run: papers.yml for the reader's runs,
+# attempt.yml for the rest. With the input `registry` they read the registry and write nothing to it: the run
+# starts from this repository's branch attempt/<paper>, and ends by signing its results and adding them to that
+# branch (encore-protocol docs/outside-runs.md). The Send workflow sends the finished attempt to the registry.
 
 on:
   workflow_dispatch:
@@ -13,88 +14,64 @@ on:
         description: "The paper's key in the registry (papers/keys.yaml), such as smith-2020"
         required: true
       role:
-        description: "claims, then claims-check until the claims are ready, then author"
+        description: "The run to make, in the order of the list"
         type: choice
-        options: [claims, claims-check, author]
+        options: [claims, claims-check, author, answer, author-answers, verifier-1, author-revise-1, verifier-2, author-revise-2, verifier-3, author-revise-3, reconcile, recorder]
         required: true
       model:
         description: "The model the run uses"
         default: claude-opus-5-5
+      account:
+        description: "Which of this repository's Claude accounts the run uses"
+        type: choice
+        options: [verified, unverified, api]
+        default: verified
 
-# contents, id-token and attestations: GitHub checks the called workflows' jobs against these, including their
-# commit job, which a run from here never reaches. The submit job signs the results with id-token and attestations.
+# contents: the run pushes the attempt's state to this repository's own branch. id-token and attestations: it signs
+# its results.
 permissions:
   contents: write
   id-token: write
   attestations: write
 
-env:
-  REGISTRY: encorescience/encore-registry
-
 jobs:
   # The protocol is pinned to its main branch while this repository is being tried; it moves to a release tag of
   # encore-protocol before anyone else runs it.
-  claims:
-    if: inputs.role != 'author'
+  reader:
+    if: contains(fromJSON('["claims", "claims-check", "answer"]'), inputs.role)
     uses: encorescience/encore-protocol/.github/workflows/papers.yml@main
     with:
       paper: ${{ inputs.paper }}
       role: ${{ inputs.role }}
       model: ${{ inputs.model }}
+      account: ${{ inputs.account }}
       registry: encorescience/encore-registry
       papers_repo: ${{ vars.ENCORE_PAPERS_REPO }}
       accountable: ${{ vars.ENCORE_ACCOUNTABLE }}
-    secrets: inherit
+    # By name, not `secrets: inherit`: GitHub passes inherited secrets, and a caller's environment secrets, to a
+    # reusable workflow only within one organization, and a fork is usually in another (encore-protocol
+    # docs/outside-runs.md).
+    secrets:
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+      CLAUDE_CODE_OAUTH_TOKEN_UNVERIFIED: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN_UNVERIFIED }}
+      ANTHROPIC_API_KEY_CREDITS: ${{ secrets.ANTHROPIC_API_KEY_CREDITS }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      PAPERS_DEPLOY_KEY: ${{ secrets.PAPERS_DEPLOY_KEY }}
 
-  author:
-    if: inputs.role == 'author'
+  attempt:
+    if: ${{ !contains(fromJSON('["claims", "claims-check", "answer"]'), inputs.role) }}
     uses: encorescience/encore-protocol/.github/workflows/attempt.yml@main
     with:
       paper: ${{ inputs.paper }}
-      role: author
+      role: ${{ inputs.role }}
       model: ${{ inputs.model }}
+      account: ${{ inputs.account }}
       registry: encorescience/encore-registry
       papers_repo: ${{ vars.ENCORE_PAPERS_REPO }}
       accountable: ${{ vars.ENCORE_ACCOUNTABLE }}
-    secrets: inherit
-
-  deliver:
-    needs: [claims, author]
-    if: always() && (needs.claims.result == 'success' || needs.author.result == 'success')
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      # With ENCORE_INTAKE_TOKEN, a token that may start the registry's workflows (encorescience/encore-runner has
-      # one; a fork does not), the run starts the intake and waits for it. Otherwise it says how to send the run.
-      - name: Send the run to the registry
-        env:
-          GH_TOKEN: ${{ secrets.ENCORE_INTAKE_TOKEN }}
-          PAPER: ${{ inputs.paper }}
-          ROLE: ${{ inputs.role }}
-        run: |
-          run_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
-          if [ -z "$GH_TOKEN" ]; then
-            q=$(python3 -c 'import sys, urllib.parse as u; print(u.urlencode({"template": "outside-run.yml", "title": f"Outside run: {sys.argv[2]} {sys.argv[3]}", "run": sys.argv[1]}))' "$run_url" "$PAPER" "$ROLE")
-            {
-              echo "## Send this run to the registry"
-              echo
-              echo "The run finished. Send it to the registry with [this issue](https://github.com/$REGISTRY/issues/new?$q), which has the run's address filled in. Someone at CatalystNeuro approves it, and the registry's intake commits it to the attempt's branch and comments on the issue. Start the next run on $PAPER once the issue is closed."
-            } >> "$GITHUB_STEP_SUMMARY"
-            echo "::notice::Send this run to the registry with an Outside run issue (see the summary)."
-            exit 0
-          fi
-          request="$GITHUB_REPOSITORY_OWNER-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
-          gh workflow run intake.yml -R "$REGISTRY" -f run_url="$run_url" -f request="$request"
-          id=
-          for _ in $(seq 30); do
-            sleep 10
-            id=$(gh run list -R "$REGISTRY" -w intake.yml -e workflow_dispatch -L 20 --json databaseId,displayTitle \
-                   --jq ".[] | select(.displayTitle == \"Intake: $request\") | .databaseId" | head -1)
-            [ -z "$id" ] || break
-          done
-          [ -n "$id" ] || { echo "::error::The registry's intake did not start; send the run with an Outside run issue."; exit 1; }
-          echo "Intake: https://github.com/$REGISTRY/actions/runs/$id" >> "$GITHUB_STEP_SUMMARY"
-          gh run watch "$id" -R "$REGISTRY" --exit-status > /dev/null || {
-            echo "::error::The registry did not take the run: https://github.com/$REGISTRY/actions/runs/$id"; exit 1; }
-          echo "The registry took the run and committed it to attempt/$PAPER." >> "$GITHUB_STEP_SUMMARY"
+    secrets:
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+      CLAUDE_CODE_OAUTH_TOKEN_UNVERIFIED: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN_UNVERIFIED }}
+      ANTHROPIC_API_KEY_CREDITS: ${{ secrets.ANTHROPIC_API_KEY_CREDITS }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      PAPERS_DEPLOY_KEY: ${{ secrets.PAPERS_DEPLOY_KEY }}
