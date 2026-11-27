@@ -40,7 +40,7 @@ jobs:
   # tag ("workflow was not found", 2026-11-25). A fork follows a new release by syncing with this repository.
   reader:
     if: contains(fromJSON('["claims", "claims-check", "answer"]'), inputs.role)
-    uses: encorescience/encore-protocol/.github/workflows/papers.yml@a698f8c1ab8218200a1a65f7be720bd31b5187df   # v0.1.5
+    uses: encorescience/encore-protocol/.github/workflows/papers.yml@c8423f94dd03923a5eb9e27a037a9cea9cee2c3a   # v0.1.8
     with:
       paper: ${{ inputs.paper }}
       role: ${{ inputs.role }}
@@ -61,7 +61,7 @@ jobs:
 
   attempt:
     if: ${{ !contains(fromJSON('["claims", "claims-check", "answer"]'), inputs.role) }}
-    uses: encorescience/encore-protocol/.github/workflows/attempt.yml@a698f8c1ab8218200a1a65f7be720bd31b5187df   # v0.1.5
+    uses: encorescience/encore-protocol/.github/workflows/attempt.yml@c8423f94dd03923a5eb9e27a037a9cea9cee2c3a   # v0.1.8
     with:
       paper: ${{ inputs.paper }}
       role: ${{ inputs.role }}
